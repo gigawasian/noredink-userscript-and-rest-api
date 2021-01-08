@@ -35,5 +35,5 @@ app.get('/api/getanswer/', (req, res) => {
 app.get('/api/test', (req, res) => {
     res.send("hello world!");
 });
-
-app.listen(3000, () => console.log('server started'));
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log('server started'));
