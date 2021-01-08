@@ -17,7 +17,10 @@ app.get('/api/addanswer/:Id/:question/:answer/', (req, res) => {
   fs.readFile("questions_and_answers.json", 'utf8', function (err, data) {
     if (err) return console.log(err);
     var datajson=JSON.parse(data);
-    datajson[(req.params.Id).toString()][req.params.question]=req.params.answer;
+    if (!(typeof datajson[req.params.Id] === 'object' && datajson[req.params.Id] !== null)) {//adds id if doesnt already exist as object
+      datajson[req.params.Id]={};
+    }
+    datajson[req.params.Id][req.params.question]=req.params.answer;
     var dataupdated=JSON.stringify(datajson);
     fs.writeFile("questions_and_answers.json", dataupdated, function (err) {
       if (err) return console.log(err);
