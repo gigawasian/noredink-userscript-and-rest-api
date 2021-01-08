@@ -13,15 +13,15 @@ app.use(express.static('public'));
 app.get('/', (req, res) => {
   res.send('Express api is awake.  Use /api/');
 });
-app.get('/api/addanswer/:question/:answer/', (req, res) => {
+app.get('/api/addanswer/:id/:question/:answer/', (req, res) => {
   fs.readFile("questions_and_answers.json", 'utf8', function (err, data) {
     if (err) return console.log(err);
     var datajson=JSON.parse(data);
-    datajson[req.params.question]=req.params.answer;
+    datajson[req.params.id][req.params.question]=req.params.answer;
     var dataupdated=JSON.stringify(datajson);
     fs.writeFile("questions_and_answers.json", dataupdated, function (err) {
       if (err) return console.log(err);
-      res.send("added question: " + req.params.question+"\nwith answer: "+req.params.answer);
+      res.send("id: "+req.params.id+"\nadded question: " + req.params.question+"\nwith answer: "+req.params.answer);
     });
   });
 });
