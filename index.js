@@ -11,7 +11,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
 app.get('/', (req, res) => {
-  res.send('Express api is awake.  Use /api/');
+  res.send('Express api is awake.  Usage: /api/addanswer/(id)/(question)/(answer)/ or /api/getanswer/');
 });
 app.get('/api/addanswer/:id/:question/:answer/', (req, res) => {
   fs.readFile("questions_and_answers.json", 'utf8', function (err, data) {
