@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         noredink
 // @namespace    https://github.com/dayoshiguy/rest-api-for-userscript
-// @version      0.1
-// @description  shows the answer to the questions in noredink.  When you get a question wrong it will be saved to the database.  currently only supports multiple choice questions but more will be added later
+// @version      1.2
+// @description  shows the answer to the questions in noredink.  When you get a question wrong it will be saved to the database, so the more people who use this script, the more accurate it will be.  currently only supports multiple choice and highlighting question types but more will be added later
 // @author       You
 // @match        *://www.noredink.com/learn/quiz/*
 // @require      https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
@@ -14,14 +14,14 @@
 // @grant        GM_getResourceURL
 // @grant        GM_getResourceText
 // @grant        GM.xmlHttpRequest
-// @run-at       document-start
+//// @run-at       document-start
 // ==/UserScript==
 
 (function() {
     'use strict';
     var $ = window.jQuery;
 
-/*    //https://stackoverflow.com/a/11532646
+    //https://stackoverflow.com/a/11532646
     var iconSet1 = GM_getResourceURL ("IconSet1");
     var iconSet2 = GM_getResourceURL ("IconSet2");
     var jqUI_CssSrc = GM_getResourceText ("jqUI_CSS");
@@ -31,25 +31,33 @@
 
     GM_addStyle (jqUI_CssSrc);
     //https://stackoverflow.com/a/25468928
-    /*--- For this to work well, we must also add-in the jQuery-UI CSS.
-    We add the CSS this way so that the embedded, relatively linked images load correctly.
-    (Use //ajax... so that https or http is selected as appropriate to avoid "mixed content".)
+    //--- For this to work well, we must also add-in the jQuery-UI CSS.
+    //We add the CSS this way so that the embedded, relatively linked images load correctly.
+    //(Use //ajax... so that https or http is selected as appropriate to avoid "mixed content".)
 
     $("head").append (
         '<link '
-        /*+ 'href="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/themes/le-frog/jquery-ui.min.css" '*\/
+        //+ 'href="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/themes/le-frog/jquery-ui.min.css" '
         +'http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css'
         + 'rel="stylesheet" type="text/css">'
     );
     //--- Add our custom dialog using jQuery.
     $("body").append (
         `<div id="gmOverlayDialog">
+         <button type="button" id="hidedialogue" onclick="$(this).parent().hide();$('.ui-dialog').on('click','.ui-dialog-titlebar', ()=>{$(this).parent().show();$(this).parent().parent().width(300);$('span.ui-dialog-title').text('options');});$('span.ui-dialog-title').text('🇳🔧'); $(this).parent().parent().width(100);$('.ui-resizable-handle').hide();">hide window</button>
          <fieldset>
          <legend>get all wrong: </legend>
          <label for="radio-1">on</label>
-         <input type="radio" name="radio-1" id="radio-1">
+         <input type="radio" name="radio-1" id="radio-1" value="on">
          <label for="radio-2">off</label>
-         <input type="radio" name="radio-1" id="radio-2">
+         <input type="radio" name="radio-1" id="radio-2" value="off">
+         </fieldset>
+         <fieldset>
+         <legend>on wrong question proceed: </legend>
+         <label for="radio-1">instantly</label>
+         <input type="radio" name="radio-2" id="radio-3" value="on">
+         <label for="radio-2">delay</label>
+         <input type="radio" name="radio-2" id="radio-4" value="off">
          </fieldset>
          </div>`
     );
@@ -72,17 +80,19 @@
         minHeight:  200,
         zIndex:     3666,
         open: function(event, ui) {
-            $(this).parent().hide();//hide it for now i guess
+            //$(this).hide();//hide it for now i guess
             //https://stackoverflow.com/a/897393
             $(".ui-dialog-titlebar-close", $(this).parent()).hide();
+          document.getElementById("hidedialogue").click();
         }
     } )
         .dialog ("widget").draggable ("option", "containment", "none");
 
-*/
-
+    ////////////////////////////////////////////////////
+    var settings_getAllWrong,settings_instantContinue;
     var url=window.location.href;
     var practiceID=url.indexOf("try_similar")==-1?url.split("/learn/quiz/")[1].split("/")[0]:url.split("/learn/quiz/")[1].split("/try_similar")[0];
+    var userID;
     //var REST="https://rest-api-for-nri-userscript.herokuapp.com/api/";
     var REST="https://rest-api-for-userscript-1.lukec1.repl.co/api/";
     var question;
@@ -90,7 +100,7 @@
     var $keyElements=["html>body>div:eq(2)>div>div>div:eq(0)>header>h2"];//,"html>body>div:eq(2)>div>div:eq(0)>div:eq(0)>header>h2"];
     var $trySimilar="html>body>div:eq(3)>div:eq(1)>div>div>div>button";
     var numOfChoices=0;
-    var trysimilartype;
+    //var trysimilartype;
     ///////////////
     function addQuestion(id,question,answer,callback){
         $.get(REST+"addanswer/"+id+"/"+encodeURIComponent(question)+"/"+encodeURIComponent(answer), function(result){
@@ -151,6 +161,36 @@
         array.forEach((i)=>{a.add(i)});
         return a.get(_string);
     }*/
+    function setUserSettings(userid,setting,value,callback){
+        $.get(REST+"addanswer/"+userid+"/"+encodeURIComponent(setting)+"/"+encodeURIComponent(value), function(result){
+            console.log(result);
+            callback(result);
+        });
+    }
+    function getUserSettings(userid,callback){
+        GM.xmlHttpRequest({//https://wiki.greasespot.net/GM.xmlHttpRequest#GET_request
+            method: "GET",
+            url: REST+"search/user"+userid,
+            headers: {
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "text/xml"
+            },
+            onload: function(response) {
+                var responseXML = null;
+                console.log([
+                    response.status,
+                    response.statusText,
+                    response.readyState,
+                    response.responseHeaders,
+                    response.responseText,
+                    response.finalUrl,
+                    responseXML
+                ].join("\n"));
+
+                callback(JSON.parse(response.responseText).getAllWrong,JSON.parse(response.responseText).instantContinue);//callback(get all wrong?, continue instantly on incorrect?)
+            }
+        });
+    }
     function getTrySimilarQuestionType(callback){
         GM.xmlHttpRequest({//https://wiki.greasespot.net/GM.xmlHttpRequest#GET_request
             method: "GET",
@@ -204,8 +244,46 @@
             $(div).dialog();
         }
     }*/
+    function getRndInteger(min, max) {
+        return Math.floor(Math.random() * (max - min + 1) ) + min;
+    }
     var waitForItToLoad=setInterval(()=>{
         $keyElements.forEach(i=>{if($(i).length>-1){//checks if one of the key elements have loaded aka the page finished loaded
+            userID=document.head.getElementsByTagName("script")[6].innerHTML.split("id: ")[1].split(",")[0];
+            //https://stackoverflow.com/a/13152970
+            $('input[type=radio][name=radio-1]').change(function() {//getAllWrong
+                if (this.value == 'on') {
+                    //alert("on");
+                    setUserSettings("user"+userID,"getAllWrong","on",(result)=>{console.log(result)});
+                    setTimeout(()=>{$("html>body>div:eq(3)>div>div>div:eq(1)>div>section>section>article>div>button").click()},getRndInteger(100,500));//automatically click next button to get all wrong and collect data fast
+                }
+                else if (this.value == 'off') {
+                    //alert("off");
+                    setUserSettings("user"+userID,"getAllWrong","off",(result)=>{console.log(result)});
+                }
+            });
+          $('input[type=radio][name=radio-2]').change(function() {//instantContinue
+                if (this.value == 'on') {
+                    //alert("on");
+                    setUserSettings("user"+userID,"instantContinue","on",(result)=>{console.log(result)});
+                    setTimeout(()=>{$("html>body>div:eq(3)>div>div>div:eq(1)>div>section>section>article>div>button").click()},getRndInteger(100,500));//automatically click next button to get all wrong and collect data fast
+                }
+                else if (this.value == 'off') {
+                    //alert("off");
+                    setUserSettings("user"+userID,"instantContinue","off",(result)=>{console.log(result)});
+                }
+            });
+          document.getElementById("hidedialogue").click();
+            getUserSettings(userID,(gotAllWrong,instontContinue)=>{//get the users settings if saved
+                //alert(gotAllWrong);
+                $('input[type=radio][name=radio-1][value=on]').prop("checked",(gotAllWrong=="on"));
+                $('input[type=radio][name=radio-1][value=off]').prop("checked",(gotAllWrong=="off"));
+                settings_getAllWrong=gotAllWrong=="on";//true:false
+                $('input[type=radio][name=radio-2][value=on]').prop("checked",(instontContinue=="on"));
+                $('input[type=radio][name=radio-2][value=off]').prop("checked",(instontContinue=="off"));
+                settings_instantContinue=instontContinue=="on";
+                if(settings_getAllWrong)setTimeout(()=>{$("html>body>div:eq(3)>div>div>div:eq(1)>div>section>section>article>div>button").click()},getRndInteger(100,500));
+            });
             if(url.indexOf("try_similar")==-1){//not on try_similar page aka in a practice question
                 //alert(getQuestionType());
                 //var window=new jqWindow(10,10,"test","windowid");
@@ -249,6 +327,14 @@
                         //alert(_Answer);
                         //alert(_Question);
                         addQuestion(practiceID,_Question,_Answer,(result)=>{console.log(result)});
+                    }else if(result=="OutlineDraggable"){
+                        /*document.getElementById("try-similar-problem").innerText="question data saved";
+                        var _question="";
+                        var _answer;
+                        _Answer=$("[data-answer='correct']")[0].getElementsByTagName("p")[0].innerText;
+                        //alert(_Answer);
+                        //alert(_Question);
+                        addQuestion(practiceID,_Question,_Answer,(result)=>{console.log(result)});*/
                     }
                 });
             }else{
@@ -259,7 +345,8 @@
             //alert(question+"\n"+choice);
             clearInterval(waitForItToLoad);
         }});
-        var timer=3;var countdown=setInterval(()=>{document.getElementById("try-similar-problem").innerText="automatically continuing in "+timer+"...";timer--;if(timer<=0){clearInterval(countdown);$($trySimilar).click();}},1000);
+        var timer=settings_instantContinue==false?3:0;var countdown=setInterval(()=>{document.getElementById("try-similar-problem").innerText="automatically continuing in "+timer+"...";timer--;if(timer<=0){clearInterval(countdown);$($trySimilar).click();}},1000);
         //$($trySimilar).click();//click the continue button (if it is there)
+        //if(settings_getAllWrong)setTimeout(()=>{$("html>body>div:eq(3)>div>div>div:eq(1)>div>section>section>article>div>button").click()},getRndInteger(100,500));//automatically click next button to get all wrong and collect data fast
     },500);
 })();
