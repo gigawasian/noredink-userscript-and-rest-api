@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         noredink
+// @name         noredink cheat
 // @namespace    https://github.com/dayoshiguy/rest-api-for-userscript
-// @version      1.2
-// @description  shows the answer to the questions in noredink.  When you get a question wrong it will be saved to the database, so the more people who use this script, the more accurate it will be.  currently only supports multiple choice and highlighting question types but more will be added later
+// @version      1.5
+// @description  shows the answer to the questions in noredink.  When you get a question wrong it will be saved to the database, so the more people who use this script, the more accurate it will be.  currently supports multiple choice, highlighting and multi-highlighting question types and more will be added later (drag and drop etc)
 // @author       You
 // @match        *://www.noredink.com/learn/quiz/*
 // @require      https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
@@ -59,6 +59,7 @@
          <label for="radio-2">delay</label>
          <input type="radio" name="radio-2" id="radio-4" value="off">
          </fieldset>
+         <span id="questionInfo"></span>
          </div>`
     );
 
@@ -83,7 +84,7 @@
             //$(this).hide();//hide it for now i guess
             //https://stackoverflow.com/a/897393
             $(".ui-dialog-titlebar-close", $(this).parent()).hide();
-          document.getElementById("hidedialogue").click();
+          //document.getElementById("hidedialogue").click();
         }
     } )
         .dialog ("widget").draggable ("option", "containment", "none");
@@ -155,6 +156,32 @@
 
         });
     }
+  function getNumOfQuestion(id,callback){
+        GM.xmlHttpRequest({//https://wiki.greasespot.net/GM.xmlHttpRequest#GET_request
+            method: "GET",
+            url: REST+"search/"+id+"/",
+            headers: {
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "text/xml"
+            },
+            onload: function(response) {
+                var responseXML = null;
+                console.log([
+                    response.status,
+                    response.statusText,
+                    response.readyState,
+                    response.responseHeaders,
+                    response.responseText,
+                    response.finalUrl,
+                    responseXML
+                ].join("\n"));
+              callback(Object.keys(JSON.parse(response.responseText)).length);
+
+            }
+
+
+        });
+    }
     /*function findClosestStringInArray(array,_string){
 
         var a = FuzzySet();
@@ -191,6 +218,7 @@
             }
         });
     }
+  
     function getTrySimilarQuestionType(callback){
         GM.xmlHttpRequest({//https://wiki.greasespot.net/GM.xmlHttpRequest#GET_request
             method: "GET",
@@ -212,6 +240,29 @@
                 ].join("\n"));
 
                 callback(JSON.parse(response.responseText).type);
+            }
+        });
+    }
+  function getServerStatus(callback){
+        GM.xmlHttpRequest({//https://wiki.greasespot.net/GM.xmlHttpRequest#GET_request
+            method: "GET",
+            url: REST+"test/",
+            headers: {
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "text/xml"
+            },
+            onload: function(response) {
+                var responseXML = null;
+                console.log([
+                    response.status,
+                    response.statusText,
+                    response.readyState,
+                    response.responseHeaders,
+                    response.responseText,
+                    response.finalUrl,
+                    responseXML
+                ].join("\n"));
+                callback(response.responseText=="hello world!");
             }
         });
     }
@@ -249,7 +300,8 @@
     }
     var waitForItToLoad=setInterval(()=>{
         $keyElements.forEach(i=>{if($(i).length>-1){//checks if one of the key elements have loaded aka the page finished loaded
-            userID=document.head.getElementsByTagName("script")[6].innerHTML.split("id: ")[1].split(",")[0];
+            userID=document.head.getElementsByTagName("script")[2].innerHTML.split("id: ")[1].split(",")[0];
+          
             //https://stackoverflow.com/a/13152970
             $('input[type=radio][name=radio-1]').change(function() {//getAllWrong
                 if (this.value == 'on') {
@@ -273,7 +325,7 @@
                     setUserSettings("user"+userID,"instantContinue","off",(result)=>{console.log(result)});
                 }
             });
-          document.getElementById("hidedialogue").click();
+          //document.getElementById("hidedialogue").click();
             getUserSettings(userID,(gotAllWrong,instontContinue)=>{//get the users settings if saved
                 //alert(gotAllWrong);
                 $('input[type=radio][name=radio-1][value=on]').prop("checked",(gotAllWrong=="on"));
@@ -282,12 +334,14 @@
                 $('input[type=radio][name=radio-2][value=on]').prop("checked",(instontContinue=="on"));
                 $('input[type=radio][name=radio-2][value=off]').prop("checked",(instontContinue=="off"));
                 settings_instantContinue=instontContinue=="on";
-                if(settings_getAllWrong)setTimeout(()=>{$("html>body>div:eq(3)>div>div>div:eq(1)>div>section>section>article>div>button").click()},getRndInteger(100,500));
+                if(settings_getAllWrong)setTimeout(()=>{$("html>body>div:eq(3)>div>div>div:eq(1)>div>section>section>article>div>button").click();document.getElementsByClassName("Nri-Quiz-Layout-Question")[0].getElementsByTagName("button")[getRndInteger(0,3)].click();},getRndInteger(100,500));
             });
             if(url.indexOf("try_similar")==-1){//not on try_similar page aka in a practice question
                 //alert(getQuestionType());
                 //var window=new jqWindow(10,10,"test","windowid");
                 //window.create();
+              getServerStatus((status)=>{document.getElementById("questionInfo").innerText+="type: "+getQuestionType()+"\nquestion id: "+practiceID+"\nuser id: "+userID+"\nserver status: "+((status)?"up":"down");})
+              getNumOfQuestion(practiceID,(numofquestions)=>{document.getElementById("questionInfo").innerText+="\n"+numofquestions+" answers are available for this practice so far.  "});
                 if(getQuestionType()=="MultipleChoice"){
                     question=document.getElementsByClassName("Nri-Quiz-Layout-Question")[0].getElementsByTagName("p")[0].innerText;
                     /*numOfChoices=document.getElementsByClassName("Nri-Quiz-Layout-Question")[0].getElementsByTagName("button").length;
@@ -308,6 +362,7 @@
             }else if(url.indexOf("try_similar")>-1){//if on try_similar page aka they just got one wrong
                 //alert(getQuestionType());
                 getTrySimilarQuestionType((result)=>{
+                  document.getElementById("questionInfo").innerText+="type: "+result+"\nquestion id: "+practiceID+"\nuser id: "+userID;
                     if(result=="MultipleChoice"){
                         document.getElementById("try-similar-problem").innerText="question data saved";
                         var Question,Answer;
@@ -327,7 +382,7 @@
                         //alert(_Answer);
                         //alert(_Question);
                         addQuestion(practiceID,_Question,_Answer,(result)=>{console.log(result)});
-                    }else if(result=="OutlineDraggable"){
+                    }else if(result=="OutlineDraggable"){//WIP
                         /*document.getElementById("try-similar-problem").innerText="question data saved";
                         var _question="";
                         var _answer;
@@ -335,6 +390,13 @@
                         //alert(_Answer);
                         //alert(_Question);
                         addQuestion(practiceID,_Question,_Answer,(result)=>{console.log(result)});*/
+                    }else if(result=="MultiHighlighter"){//WIP
+                      /*var datadata=JSON.parse(document.getElementsByClassName("try-similar-container")[0].getElementsByTagName("div")[0].getAttribute("data-data")).correctAnswer;
+                      var tmp="";
+                      for(var x=0;x<datadata.length;x++){
+                        if(datadata[x].highlighted=="Reasoning")tmp+=datadata[x].text
+                      }
+                    */
                     }
                 });
             }else{
@@ -345,7 +407,7 @@
             //alert(question+"\n"+choice);
             clearInterval(waitForItToLoad);
         }});
-        var timer=settings_instantContinue==false?3:0;var countdown=setInterval(()=>{document.getElementById("try-similar-problem").innerText="automatically continuing in "+timer+"...";timer--;if(timer<=0){clearInterval(countdown);$($trySimilar).click();}},1000);
+        var timer=settings_instantContinue==false?3:0;var countdown=setInterval(()=>{if(!(typeof document.getElementById("try-similar-problem") == "undefined"||document.getElementById("try-similar-problem")==null)){document.getElementById("try-similar-problem").innerText="automatically continuing in "+timer+"...";timer--;}if(timer<=0){clearInterval(countdown);$($trySimilar).click();}},1000);
         //$($trySimilar).click();//click the continue button (if it is there)
         //if(settings_getAllWrong)setTimeout(()=>{$("html>body>div:eq(3)>div>div>div:eq(1)>div>section>section>article>div>button").click()},getRndInteger(100,500));//automatically click next button to get all wrong and collect data fast
     },500);
