@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         noredink cheat
 // @namespace    https://github.com/dayoshiguy/rest-api-for-userscript
-// @version      1.5
-// @description  shows the answer to the questions in noredink.  When you get a question wrong it will be saved to the database, so the more people who use this script, the more accurate it will be.  currently supports multiple choice, highlighting and multi-highlighting question types and more will be added later (drag and drop etc)
+// @version      1.9
+// @description  shows the answer to the questions in noredink.  When you get a question wrong it will be saved to the database, so the more people who use this script, the more accurate it will be.  currently supports multiple choice, highlighting, multi-highlighting, playground and outlinedraggable question types and more will be added later
 // @author       You
 // @match        *://www.noredink.com/learn/quiz/*
 // @require      https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
@@ -175,7 +175,7 @@
                     response.finalUrl,
                     responseXML
                 ].join("\n"));
-              callback(Object.keys(JSON.parse(response.responseText)).length);
+              callback((Object.keys(JSON.parse(response.responseText)).length>=1)?(Object.keys(JSON.parse(response.responseText)).length-1):0);
 
             }
 
@@ -340,8 +340,8 @@
                 //alert(getQuestionType());
                 //var window=new jqWindow(10,10,"test","windowid");
                 //window.create();
-              getServerStatus((status)=>{document.getElementById("questionInfo").innerText+="type: "+getQuestionType()+"\nquestion id: "+practiceID+"\nuser id: "+userID+"\nserver status: "+((status)?"up":"down");})
-              getNumOfQuestion(practiceID,(numofquestions)=>{document.getElementById("questionInfo").innerText+="\n"+numofquestions+" answers are available for this practice so far.  "});
+              getServerStatus((status)=>{getNumOfQuestion(practiceID,(numofquestions)=>{document.getElementById("questionInfo").innerText+="type: "+getQuestionType()+"\nquestion id: "+practiceID+"\nuser id: "+userID+"\nserver status: "+((status)?"up":"down");document.getElementById("questionInfo").innerText+="\n"+numofquestions+" answers are available for this practice so far.  ";})});
+              
                 if(getQuestionType()=="MultipleChoice"){
                     question=document.getElementsByClassName("Nri-Quiz-Layout-Question")[0].getElementsByTagName("p")[0].innerText;
                     /*numOfChoices=document.getElementsByClassName("Nri-Quiz-Layout-Question")[0].getElementsByTagName("button").length;
@@ -358,6 +358,14 @@
                     }
                     //alert(question);
                     getQuestions(practiceID,question);
+                }
+                else if(getQuestionType()=="OutlineDraggable"){
+                  question=document.getElementsByClassName("Nri-Quiz-Layout-Question")[0].getElementsByTagName("p")[0].innerText;
+                  getQuestions(practiceID,question);
+                }
+              else if(getQuestionType()=="Playground"){
+                  question=JSON.parse(document.getElementById("quiz-question").getElementsByTagName("div")[0].getAttribute("data-data")).the_question.paragraphs[0].structures[0].sections[0].text;
+                  getQuestions(practiceID,question);
                 }
             }else if(url.indexOf("try_similar")>-1){//if on try_similar page aka they just got one wrong
                 //alert(getQuestionType());
@@ -382,14 +390,20 @@
                         //alert(_Answer);
                         //alert(_Question);
                         addQuestion(practiceID,_Question,_Answer,(result)=>{console.log(result)});
-                    }else if(result=="OutlineDraggable"){//WIP
-                        /*document.getElementById("try-similar-problem").innerText="question data saved";
-                        var _question="";
-                        var _answer;
-                        _Answer=$("[data-answer='correct']")[0].getElementsByTagName("p")[0].innerText;
+                    }else if(result=="OutlineDraggable"){
+                        document.getElementById("try-similar-problem").innerText="question data saved";
+                        var _answer="";
+                      var __question=JSON.parse(document.getElementsByClassName("try-similar-container")[0].getElementsByTagName("div")[1].getAttribute("data-data")).outline[0].text;
+                        var __answer;
+                        //_Answer=$("[data-answer='correct']")[0].getElementsByTagName("p")[0].innerText;
+                        __answer=JSON.parse(document.getElementsByClassName("try-similar-container")[0].getElementsByTagName("div")[1].getAttribute("data-data")).correctsByDropzone;
+                      for(var corr in __answer){
+                        _answer+= __answer[corr];
+                      }
+                      //alert(__question);
                         //alert(_Answer);
                         //alert(_Question);
-                        addQuestion(practiceID,_Question,_Answer,(result)=>{console.log(result)});*/
+                        addQuestion(practiceID,__question,_answer,(result)=>{console.log(result)});
                     }else if(result=="MultiHighlighter"){//WIP
                       /*var datadata=JSON.parse(document.getElementsByClassName("try-similar-container")[0].getElementsByTagName("div")[0].getAttribute("data-data")).correctAnswer;
                       var tmp="";
@@ -397,7 +411,13 @@
                         if(datadata[x].highlighted=="Reasoning")tmp+=datadata[x].text
                       }
                     */
-                    }
+                  }else if(result=="Playground"){
+                      //var datadata=JSON.parse(document.getElementsByClassName("try-similar-container")[0].getElementsByTagName("div")[0].getAttribute("data-data")).correctAnswer;
+                  var aaaaanswer=JSON.parse(document.getElementsByClassName("comparison-paragraphs")[0].getElementsByTagName("div")[0].getAttribute("data-data")).comparison_paragraphs[1].playground.paragraphs[1].structures[0].sections[0].text;
+                    var qqqqqquestion=JSON.parse(document.getElementsByClassName("comparison-paragraphs")[0].getElementsByTagName("div")[0].getAttribute("data-data")).comparison_paragraphs[1].playground.paragraphs[1].structures[0].sections[0].text;
+                    addQuestion(practiceID,encodeURIComponent(qqqqqquestion),encodeURIComponent(aaaaanswer),(result)=>{console.log(result)});
+                }
+                  
                 });
             }else{
                 alert("wtf");
